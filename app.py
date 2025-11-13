@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import asyncio
 from openai import OpenAI
-from agents import Agent, Runner
+from agents import Agent, FileSearchTool, Runner, WebSearchTool
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -14,14 +14,25 @@ def log_system_message(message: str):
     st.session_state.setdefault("system_logs", [])
     st.session_state["system_logs"].append(f"[{timestamp}] {message}")
 
+# AGENT SETUP 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+vector_store_id = os.environ.get("VECTOR_STORE_ID")
+
+#Initiate tools 
+tools=[
+        WebSearchTool(),
+        FileSearchTool(
+            max_num_results=3,
+            vector_store_ids=[vector_store_id],
+        ),
+    ]
 
 # Initialize agent with tools
 router_agent = Agent(
     name="RouterAgent",
     instructions="You are a helpful assistant.",
-    tools=[],
+    tools=tools,
     model="gpt-4"
 )
 
