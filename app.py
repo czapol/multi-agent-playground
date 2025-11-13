@@ -26,9 +26,10 @@ router_agent = Agent(
 )
 
 # Define a function to run the agent
-async def generate_tasks(goal):
-    log_system_message(f"🤖 Sending prompt to agent: '{goal}'")
-    result = await Runner.run(router_agent, goal)
+async def generate_tasks(goal, conversation_history=""):
+    full_prompt = f"{conversation_history}\n\nUser: {goal}" if conversation_history else goal
+    log_system_message(f"🤖 Sending prompt to agent with conversation history")
+    result = await Runner.run(router_agent, full_prompt)
     log_system_message("✅ Agent response received")
     return result.final_output
 
@@ -63,7 +64,15 @@ with col1:
         # Get agent response
         with st.chat_message("assistant"):
             log_system_message("⏳ Generating agent response...")
-            assistant_message = asyncio.run(generate_tasks(prompt))
+            
+            # Build conversation history
+            conversation_history = "\n\n".join([
+                f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
+                for msg in st.session_state.messages[:-1]  # Exclude the current message
+            ])
+            log_system_message(f"📚 Added {len(st.session_state.messages)-1} previous messages to context")
+            
+            assistant_message = asyncio.run(generate_tasks(prompt, conversation_history))
             st.markdown(assistant_message)
             log_system_message("💾 Assistant message saved to history")
         
