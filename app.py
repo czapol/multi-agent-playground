@@ -1,12 +1,27 @@
 import streamlit as st
 import os
+import asyncio
 from openai import OpenAI
-from agents import Agent, FileSearchTool, Runner, WebSearchTool
-from dotenv import load_dotenv, find_dotenv
+from agents import Agent, Runner
+from dotenv import load_dotenv
 
+load_dotenv()
 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Initialize agent with tools
+router_agent = Agent(
+    name="RouterAgent",
+    instructions="You are a helpful assistant.",
+    tools=[],
+    model="gpt-4"
+)
+
+# Define a function to run the agent
+async def generate_tasks(goal):
+    result = await Runner.run(router_agent, goal)
+    return result.final_output
 
 # Initialize session state for conversation history
 if "messages" not in st.session_state:
@@ -20,7 +35,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # Chat input
-if prompt := st.chat_input("What would you like to know?"):
+if prompt := st.chat_input("What would you like me to do?"):
     # Add user message to history
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -28,13 +43,8 @@ if prompt := st.chat_input("What would you like to know?"):
     
     # Get agent response
     with st.chat_message("assistant"):
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=st.session_state.messages
-        )
-        assistant_message = response.choices[0].message.content
+        assistant_message = asyncio.run(generate_tasks(prompt))
         st.markdown(assistant_message)
     
     # Add assistant response to history
     st.session_state.messages.append({"role": "assistant", "content": assistant_message})
-
