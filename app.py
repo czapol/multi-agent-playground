@@ -14,24 +14,41 @@ def log_system_message(message: str):
     st.session_state.setdefault("system_logs", [])
     st.session_state["system_logs"].append(f"[{timestamp}] {message}")
 
+
+
 # AGENT SETUP 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 vector_store_id = os.environ.get("VECTOR_STORE_ID")
 
+#load prompts 
+def load_instructions(file_name):
+    try:
+        with open(file_name, "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        st.error("❌ prompt.txt file not found. Using default instructions.")
+        return """You are an experienced and knowledgeable yoga teacher. You provide accurate, helpful information about yoga practices, philosophy, poses, breathing techniques, and wellness. 
+
+Always cite your sources and provide practical, safe guidance. When discussing physical practices, remind users to listen to their bodies and consult healthcare professionals for medical advice.
+
+Be warm, encouraging, and mindful in your responses. Use yoga terminology appropriately but explain terms when needed."""
+
+router_agent_instructions = load_instructions("router_agent_prompt.txt")
+
 #Initiate tools 
 tools=[
-        WebSearchTool(),
+        WebSearchTool(), # web search tool 
         FileSearchTool(
             max_num_results=3,
-            vector_store_ids=[vector_store_id],
+            vector_store_ids=[vector_store_id], # file search tool 
         ),
     ]
 
 # Initialize agent with tools
 router_agent = Agent(
     name="RouterAgent",
-    instructions="You are a helpful assistant.",
+    instructions=router_agent_instructions,
     tools=tools,
     model="gpt-4"
 )
