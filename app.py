@@ -50,7 +50,7 @@ router_agent = Agent(
     name="RouterAgent",
     instructions=router_agent_instructions,
     tools=tools,
-    model="gpt-4"
+    model="gpt-4.1-mini"
 )
 
 # Define a function to run the agent
