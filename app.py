@@ -3,6 +3,7 @@ import os
 import asyncio
 from openai import OpenAI
 from anthropic import Anthropic
+from ollama import chat
 from agents import Agent, FileSearchTool, Runner, WebSearchTool, handoff, RunContextWrapper
 from dotenv import load_dotenv
 from datetime import datetime
@@ -40,6 +41,21 @@ Be warm, encouraging, and mindful in your responses. Use yoga terminology approp
 router_agent_instructions = load_instructions("router_agent_prompt.txt")
 file_agent_instructions = load_instructions("file_agent_prompt.txt")
 web_agent_instructions = load_instructions("web_agent_prompt.txt")
+
+# Add router instructions if prompt file doesn't exist or is empty
+if not router_agent_instructions or router_agent_instructions == load_instructions("missing_file.txt"):
+    router_agent_instructions = """You are a Router Agent that directs user requests to specialized agents.
+
+Your available agents:
+1. **FileSearchAgent**: Use for questions about uploaded documents, PDFs, or local knowledge base
+2. **WebSearchAgent**: Use for current events, news, real-time information, or anything requiring web search
+
+Decision rules:
+- If user asks about documents, files, or references uploaded content → FileSearchAgent
+- If user asks about current events, news, or needs fresh information → WebSearchAgent  
+- For general conversation, coding, or analysis → respond directly
+
+Always hand off to the appropriate agent when needed."""
 
 # Initialize tools 
 tools = [
@@ -83,14 +99,6 @@ router_agent = Agent(
     ]
 )
 
-# Define a function to run the agent
-async def generate_tasks(goal, conversation_history=""):
-    full_prompt = f"{conversation_history}\n\nUser: {goal}" if conversation_history else goal
-    log_system_message(f"🤖 Sending prompt to router agent with conversation history")
-    result = await Runner.run(router_agent, full_prompt)
-    log_system_message("✅ Agent response received")
-    return result.final_output
-
 # Anthropic agent function
 async def generate_anthropic_response(goal, conversation_history=""):
     log_system_message(f"🤖 Sending prompt to Claude agent")
@@ -119,6 +127,81 @@ async def generate_anthropic_response(goal, conversation_history=""):
     log_system_message("✅ Claude response received")
     return response.content[0].text
 
+# Ollama agent function
+async def generate_ollama_response(goal, conversation_history=""):
+    log_system_message(f"🤖 Sending prompt to Ollama agent")
+    
+    # Build messages for Ollama
+    messages = []
+    
+    # Add conversation history
+    if conversation_history:
+        for line in conversation_history.split("\n\n"):
+            if line.startswith("User: "):
+                messages.append({"role": "user", "content": line.replace("User: ", "")})
+            elif line.startswith("Assistant: "):
+                messages.append({"role": "assistant", "content": line.replace("Assistant: ", "")})
+    
+    # Add current message
+    messages.append({"role": "user", "content": goal})
+    
+    # Call Ollama
+    try:
+        response = chat(
+            model='llama3.2',
+            messages=messages
+        )
+        log_system_message("✅ Ollama response received")
+        return response['message']['content']
+    except Exception as e:
+        log_system_message(f"❌ Ollama error: {str(e)}")
+        return f"Error connecting to Ollama: {str(e)}. Make sure Ollama is running locally."
+
+# Custom handoff system - intercept and route to Claude
+async def custom_agent_runner(goal, conversation_history=""):
+    full_prompt = f"{conversation_history}\n\nUser: {goal}" if conversation_history else goal
+    log_system_message(f"🤖 Sending prompt to router agent")
+    
+    # First, ask router to decide which agent to use
+    router_decision = await Runner.run(
+        Agent(
+            name="RouterDecision",
+            instructions="""You are a routing decision maker. Analyze the user's request and respond with ONLY ONE WORD:
+            - "FILE" if they're asking about documents or uploaded files
+            - "WEB" if they need current information or web search
+            - "GENERAL" if they need general help, coding, analysis, or creative tasks
+            
+            Respond with just one word: FILE, WEB, or GENERAL""",
+            tools=[],
+            model="gpt-4o-mini"
+        ),
+        full_prompt
+    )
+    
+    decision = router_decision.final_output.strip().upper()
+    log_system_message(f"🎯 Router decision: {decision}")
+    
+    # Route based on decision
+    if decision == "FILE":
+        log_system_message(f"🔄 Handoff to FileSearch agent")
+        result = await Runner.run(file_search_agent, full_prompt)
+        return result.final_output
+    
+    elif decision == "WEB":
+        log_system_message(f"🔄 Handoff to WebSearch agent")
+        result = await Runner.run(web_search_agent, full_prompt)
+        return result.final_output
+    
+    else:
+        # For general queries, use the base router agent
+        log_system_message(f"🔄 Handling with Router agent")
+        result = await Runner.run(router_agent, full_prompt)
+        return result.final_output
+
+# Define a function to run the agent (keep for backwards compatibility)
+async def generate_tasks(goal, conversation_history=""):
+    return await custom_agent_runner(goal, conversation_history)
+
 # Initialize session state for conversation history
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -126,30 +209,21 @@ if "messages" not in st.session_state:
 
 st.title("Multi Agent Playground")
 
-# Agent selector
-selected_agent = st.selectbox(
-    "Choose Agent:",
-    ["OpenAI Router Agent", "Anthropic Claude"],
-    key="agent_selector"
-)
-
 # Create two columns: chat and logs
 col1, col2 = st.columns([2, 1])
 
 with col1:
     st.subheader("Chat")
     
-    # Container for chat history
-    chat_container = st.container()
-    
-    # Chat input (always at bottom)
-    prompt = st.chat_input("What would you like me to do?")
-    
-    # Display chat history in the container
+    # Display chat history in a scrollable container
+    chat_container = st.container(height=500)
     with chat_container:
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
+    
+    # Chat input (always at bottom)
+    prompt = st.chat_input("What would you like me to do?")
 
     # Process input
     if prompt:
@@ -173,11 +247,8 @@ with col1:
             ])
             log_system_message(f"📚 Added {len(st.session_state.messages)-1} previous messages to context")
             
-            # Choose agent based on selection
-            if selected_agent == "OpenAI Router Agent":
-                assistant_message = asyncio.run(generate_tasks(prompt, conversation_history))
-            else:  # Anthropic Claude
-                assistant_message = asyncio.run(generate_anthropic_response(prompt, conversation_history))
+            # Use the router agent system
+            assistant_message = asyncio.run(generate_tasks(prompt, conversation_history))
             
             st.markdown(assistant_message)
             log_system_message("💾 Assistant message saved to history")
