@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import asyncio
 from openai import OpenAI
-from agents import Agent, FileSearchTool, Runner, WebSearchTool
+from agents import Agent, FileSearchTool, Runner, WebSearchTool, handoff
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -14,20 +14,18 @@ def log_system_message(message: str):
     st.session_state.setdefault("system_logs", [])
     st.session_state["system_logs"].append(f"[{timestamp}] {message}")
 
-
-
 # AGENT SETUP 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 vector_store_id = os.environ.get("VECTOR_STORE_ID")
 
-#load prompts 
+# Load prompts 
 def load_instructions(file_name):
     try:
         with open(file_name, "r") as f:
             return f.read()
     except FileNotFoundError:
-        st.error("❌ prompt.txt file not found. Using default instructions.")
+        st.error(f"❌ {file_name} not found. Using default instructions.")
         return """You are an experienced and knowledgeable yoga teacher. You provide accurate, helpful information about yoga practices, philosophy, poses, breathing techniques, and wellness. 
 
 Always cite your sources and provide practical, safe guidance. When discussing physical practices, remind users to listen to their bodies and consult healthcare professionals for medical advice.
@@ -35,28 +33,55 @@ Always cite your sources and provide practical, safe guidance. When discussing p
 Be warm, encouraging, and mindful in your responses. Use yoga terminology appropriately but explain terms when needed."""
 
 router_agent_instructions = load_instructions("router_agent_prompt.txt")
+file_agent_instructions = load_instructions("file_agent_prompt.txt")
+web_agent_instructions = load_instructions("web_agent_prompt.txt")
 
-#Initiate tools 
-tools=[
-        WebSearchTool(), # web search tool 
-        FileSearchTool(
-            max_num_results=3,
-            vector_store_ids=[vector_store_id], # file search tool 
-        ),
-    ]
+# Initialize tools 
+tools = [
+    WebSearchTool(),  # web search tool 
+    FileSearchTool(
+        max_num_results=3,
+        vector_store_ids=[vector_store_id],  # file search tool 
+    ),
+]
 
-# Initialize agent with tools
+# Handoff callback
+def create_handoff_callback(agent_type):
+    def callback(context):
+        log_system_message(f"🔄 Handoff to {agent_type} agent")
+    return callback
+
+# Initialize specialized agents first (they need to exist before router can reference them)
+file_search_agent = Agent(
+    name="FileSearchAgent",
+    instructions=file_agent_instructions,
+    tools=[tools[1]],
+    model="gpt-4o-mini"
+)
+
+web_search_agent = Agent(
+    name="WebSearchAgent",
+    instructions=web_agent_instructions,
+    tools=[tools[0]],
+    model="gpt-4o-mini"
+)
+
+# Initialize router agent with handoffs
 router_agent = Agent(
     name="RouterAgent",
     instructions=router_agent_instructions,
-    tools=tools,
-    model="gpt-4.1-mini"
+    tools=[],
+    model="gpt-4o-mini",
+    handoffs=[
+        handoff(file_search_agent, on_handoff=create_handoff_callback("FileSearch")),
+        handoff(web_search_agent, on_handoff=create_handoff_callback("WebSearch")),
+    ]
 )
 
 # Define a function to run the agent
 async def generate_tasks(goal, conversation_history=""):
     full_prompt = f"{conversation_history}\n\nUser: {goal}" if conversation_history else goal
-    log_system_message(f"🤖 Sending prompt to agent with conversation history")
+    log_system_message(f"🤖 Sending prompt to router agent with conversation history")
     result = await Runner.run(router_agent, full_prompt)
     log_system_message("✅ Agent response received")
     return result.final_output
