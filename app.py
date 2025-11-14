@@ -41,6 +41,8 @@ Be warm, encouraging, and mindful in your responses. Use yoga terminology approp
 router_agent_instructions = load_instructions("router_agent_prompt.txt")
 file_agent_instructions = load_instructions("file_agent_prompt.txt")
 web_agent_instructions = load_instructions("web_agent_prompt.txt")
+ollama_instructions = load_instructions("ollama_agent_prompt.txt")
+anthropic_instructions = load_instructions("anthropic_agent_prompt.txt")
 
 # Add router instructions if prompt file doesn't exist or is empty
 if not router_agent_instructions or router_agent_instructions == load_instructions("missing_file.txt"):
@@ -132,7 +134,12 @@ async def generate_ollama_response(goal, conversation_history=""):
     log_system_message(f"🤖 Sending prompt to Ollama agent")
     
     # Build messages for Ollama
-    messages = []
+    messages = [
+        {
+            'role': 'system',
+            'content': ollama_instructions
+        }
+    ]
     
     # Add conversation history
     if conversation_history:
@@ -148,7 +155,7 @@ async def generate_ollama_response(goal, conversation_history=""):
     # Call Ollama
     try:
         response = chat(
-            model='llama3.2',
+            model='gemma3',
             messages=messages
         )
         log_system_message("✅ Ollama response received")
@@ -157,44 +164,79 @@ async def generate_ollama_response(goal, conversation_history=""):
         log_system_message(f"❌ Ollama error: {str(e)}")
         return f"Error connecting to Ollama: {str(e)}. Make sure Ollama is running locally."
 
-# Custom handoff system - intercept and route to Claude
+# Custom handoff system - intercept and route to appropriate agent
 async def custom_agent_runner(goal, conversation_history=""):
     full_prompt = f"{conversation_history}\n\nUser: {goal}" if conversation_history else goal
-    log_system_message(f"🤖 Sending prompt to router agent")
+    log_system_message(f"🤖 Sending prompt to switch agent")
     
-    # First, ask router to decide which agent to use
-    router_decision = await Runner.run(
+    # First, ask switch agent to decide which system to use
+    switch_decision = await Runner.run(
         Agent(
-            name="RouterDecision",
-            instructions="""You are a routing decision maker. Analyze the user's request and respond with ONLY ONE WORD:
-            - "FILE" if they're asking about documents or uploaded files
-            - "WEB" if they need current information or web search
-            - "GENERAL" if they need general help, coding, analysis, or creative tasks
+            name="SwitchAgent",
+            instructions="""You are a switch agent that determines which AI system to use. Analyze the user's request and respond with ONLY ONE WORD:
+            - "ROUTER" if user wants to work with ChatGPT/OpenAI, needs file search, web search, or doesn't specify a preference
+            - "ANTHROPIC" if user explicitly mentions Anthropic/Claude or wants help with coding/writing
+            - "OLLAMA" if user explicitly mentions Ollama or wants to work offline
             
-            Respond with just one word: FILE, WEB, or GENERAL""",
+            Respond with just one word: ROUTER, ANTHROPIC, or OLLAMA""",
             tools=[],
             model="gpt-4o-mini"
         ),
         full_prompt
     )
     
-    decision = router_decision.final_output.strip().upper()
-    log_system_message(f"🎯 Router decision: {decision}")
+    decision = switch_decision.final_output.strip().upper()
+    log_system_message(f"🎯 Switch decision: {decision}")
     
     # Route based on decision
-    if decision == "FILE":
-        log_system_message(f"🔄 Handoff to FileSearch agent")
-        result = await Runner.run(file_search_agent, full_prompt)
-        return result.final_output
+    if decision == "ROUTER":
+        log_system_message(f"🔄 Routing to OpenAI Router Agent")
+        
+        # Now let router decide between FILE, WEB, or GENERAL
+        router_decision = await Runner.run(
+            Agent(
+                name="RouterAgent",
+                instructions="""Analyze the request and respond with ONE WORD:
+                - "FILE" if asking about documents or uploaded files
+                - "WEB" if needs current information or web search
+                - "GENERAL" for general questions, coding help, or analysis
+                
+                Respond with: FILE, WEB, or GENERAL""",
+                tools=[],
+                model="gpt-4o-mini"
+            ),
+            full_prompt
+        )
+        
+        sub_decision = router_decision.final_output.strip().upper()
+        log_system_message(f"📍 Router sub-decision: {sub_decision}")
+        
+        if sub_decision == "FILE":
+            log_system_message(f"🔄 Handoff to FileSearch agent")
+            result = await Runner.run(file_search_agent, full_prompt)
+            return result.final_output
+        
+        elif sub_decision == "WEB":
+            log_system_message(f"🔄 Handoff to WebSearch agent")
+            result = await Runner.run(web_search_agent, full_prompt)
+            return result.final_output
+        
+        else:
+            log_system_message(f"🔄 Handling with base OpenAI agent")
+            result = await Runner.run(router_agent, full_prompt)
+            return result.final_output
     
-    elif decision == "WEB":
-        log_system_message(f"🔄 Handoff to WebSearch agent")
-        result = await Runner.run(web_search_agent, full_prompt)
-        return result.final_output
+    elif decision == "ANTHROPIC":
+        log_system_message(f"🔄 Routing to Anthropic Claude")
+        return await generate_anthropic_response(goal, conversation_history)
+    
+    elif decision == "OLLAMA":
+        log_system_message(f"🔄 Routing to Ollama (Offline)")
+        return await generate_ollama_response(goal, conversation_history)
     
     else:
-        # For general queries, use the base router agent
-        log_system_message(f"🔄 Handling with Router agent")
+        # Default to router if decision is unclear
+        log_system_message(f"⚠️ Unclear decision, defaulting to OpenAI Router")
         result = await Runner.run(router_agent, full_prompt)
         return result.final_output
 

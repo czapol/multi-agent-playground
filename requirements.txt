@@ -1,4 +1,6 @@
-streamlit>=1.37
-python-dotenv>=1.0
-openai>=1.40  # or your chosen client lib
-# plus whatever your `agents` module needs
+streamlit
+openai
+anthropic
+ollama
+agents
+python-dotenv
