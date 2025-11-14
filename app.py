@@ -2,7 +2,8 @@ import streamlit as st
 import os
 import asyncio
 from openai import OpenAI
-from agents import Agent, FileSearchTool, Runner, WebSearchTool, handoff
+from anthropic import Anthropic
+from agents import Agent, FileSearchTool, Runner, WebSearchTool, handoff, RunContextWrapper
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -17,7 +18,11 @@ def log_system_message(message: str):
 # AGENT SETUP 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-vector_store_id = os.environ.get("VECTOR_STORE_ID")
+
+# Initialize Anthropic client
+anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+vector_store_id = os.getenv("VECTOR_STORE_ID")
 
 # Load prompts 
 def load_instructions(file_name):
@@ -47,9 +52,9 @@ tools = [
 
 # Handoff callback
 def create_handoff_callback(agent_type):
-    def callback(context):
+    def on_handoff(ctx: RunContextWrapper[None]):
         log_system_message(f"🔄 Handoff to {agent_type} agent")
-    return callback
+    return on_handoff
 
 # Initialize specialized agents first (they need to exist before router can reference them)
 file_search_agent = Agent(
@@ -86,25 +91,68 @@ async def generate_tasks(goal, conversation_history=""):
     log_system_message("✅ Agent response received")
     return result.final_output
 
+# Anthropic agent function
+async def generate_anthropic_response(goal, conversation_history=""):
+    log_system_message(f"🤖 Sending prompt to Claude agent")
+    
+    # Build messages for Anthropic API
+    messages = []
+    
+    # Add conversation history
+    if conversation_history:
+        for line in conversation_history.split("\n\n"):
+            if line.startswith("User: "):
+                messages.append({"role": "user", "content": line.replace("User: ", "")})
+            elif line.startswith("Assistant: "):
+                messages.append({"role": "assistant", "content": line.replace("Assistant: ", "")})
+    
+    # Add current message
+    messages.append({"role": "user", "content": goal})
+    
+    # Call Claude
+    response = anthropic_client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=1024,
+        messages=messages
+    )
+    
+    log_system_message("✅ Claude response received")
+    return response.content[0].text
+
 # Initialize session state for conversation history
 if "messages" not in st.session_state:
     st.session_state.messages = []
     log_system_message("🚀 Application initialized")
 
-st.title("RouterAgent")
+st.title("Multi Agent Playground")
+
+# Agent selector
+selected_agent = st.selectbox(
+    "Choose Agent:",
+    ["OpenAI Router Agent", "Anthropic Claude"],
+    key="agent_selector"
+)
 
 # Create two columns: chat and logs
 col1, col2 = st.columns([2, 1])
 
 with col1:
     st.subheader("Chat")
-    # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    
+    # Container for chat history
+    chat_container = st.container()
+    
+    # Chat input (always at bottom)
+    prompt = st.chat_input("What would you like me to do?")
+    
+    # Display chat history in the container
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-    # Chat input
-    if prompt := st.chat_input("What would you like me to do?"):
+    # Process input
+    if prompt:
         log_system_message(f"📝 User input received: '{prompt}'")
         
         # Add user message to history
@@ -125,7 +173,12 @@ with col1:
             ])
             log_system_message(f"📚 Added {len(st.session_state.messages)-1} previous messages to context")
             
-            assistant_message = asyncio.run(generate_tasks(prompt, conversation_history))
+            # Choose agent based on selection
+            if selected_agent == "OpenAI Router Agent":
+                assistant_message = asyncio.run(generate_tasks(prompt, conversation_history))
+            else:  # Anthropic Claude
+                assistant_message = asyncio.run(generate_anthropic_response(prompt, conversation_history))
+            
             st.markdown(assistant_message)
             log_system_message("💾 Assistant message saved to history")
         
