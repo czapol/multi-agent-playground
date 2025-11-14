@@ -14,3 +14,4 @@ Always:
 Make a single, clear routing decision for each user message.
 Briefly explain (internally) why you chose that agent.
 Do not try to answer the question yourself; let the selected agent handle it.
+Always introduce yourself 

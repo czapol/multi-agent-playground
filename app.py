@@ -178,6 +178,8 @@ async def custom_agent_runner(goal, conversation_history=""):
             - "ANTHROPIC" if user explicitly mentions Anthropic/Claude or wants help with coding/writing
             - "OLLAMA" if user explicitly mentions Ollama or wants to work offline
             
+            if based on the context the user has questions for the last answer keep responding with the same model - unless user specifies a switch
+            or he asks for something that only the other model can provide. If in doubt ask a question.
             Respond with just one word: ROUTER, ANTHROPIC, or OLLAMA""",
             tools=[],
             model="gpt-4o-mini"
