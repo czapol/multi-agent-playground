@@ -3,6 +3,7 @@
 A Streamlit application that intelligently routes user queries between multiple AI agents and models, including OpenAI GPT, Anthropic Claude, and local Ollama models.
 
 ## How It Works (Simple Explanation)
+More in the presentation https://claude.ai/public/artifacts/c8ee4530-d8c4-4bc7-999b-2da2d1bbdae4
 
 ### 🎯 What Is It?
 
