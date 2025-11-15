@@ -63,33 +63,6 @@ You → Switch Agent
         ↓
    Returns answer to you
 ```
-
-USER QUERY
-                        │
-                        ▼
-              ┌─────────────────┐
-              │  SWITCH AGENT   │
-              └─────────┬───────┘
-                        │
-        ┌───────────────┼───────────────┐
-        │               │               │
-        ▼               ▼               ▼
-   Mentions         Mentions        No specific
-   OpenAI/          Claude/         mention
-   Files/Web        Coding          
-        │               │               │
-        ▼               ▼               ▼
-    ROUTER          ANTHROPIC       Check context
-        │               │               │
-        ▼               │               ▼
-┌───────────────┐      │         Default: ROUTER
-│ ROUTER AGENT  │      │
-└───────┬───────┘      │
-        │               │
-  ┌─────┼─────┐        │
-  │     │     │        │
-  ▼     ▼     ▼        ▼
-FILE  WEB  GENERAL  CLAUDE
 ---
 
 ## Features
