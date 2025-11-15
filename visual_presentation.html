@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent Playground</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow-x: hidden;
+        }
+        
+        .slide {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .slide:nth-child(even) {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .slide:nth-child(odd) {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        h1 {
+            font-size: 4em;
+            color: white;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            animation: fadeInDown 1s;
+        }
+        
+        h2 {
+            font-size: 2.5em;
+            color: white;
+            margin: 30px 0;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        p {
+            font-size: 1.5em;
+            color: white;
+            max-width: 800px;
+            line-height: 1.6;
+            margin: 20px auto;
+        }
+        
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+            max-width: 1200px;
+        }
+        
+        .agent-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s;
+            animation: fadeInUp 1s;
+        }
+        
+        .agent-card:hover {
+            transform: translateY(-10px);
+        }
+        
+        .agent-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .agent-name {
+            font-size: 1.8em;
+            color: #333;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .agent-desc {
+            font-size: 1.1em;
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .flow-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin: 40px auto;
+            max-width: 900px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .flow-step {
+            margin: 30px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            color: white;
+            font-size: 1.3em;
+            position: relative;
+        }
+        
+        .arrow {
+            font-size: 3em;
+            color: white;
+            margin: 10px 0;
+        }
+        
+        .example-box {
+            background: rgba(255,255,255,0.2);
+            border: 3px solid white;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px auto;
+            max-width: 700px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .example-box h3 {
+            color: white;
+            font-size: 2em;
+            margin-bottom: 15px;
+        }
+        
+        .example-box p {
+            font-size: 1.3em;
+        }
+        
+        .emoji {
+            font-size: 1.2em;
+        }
+        
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .btn {
+            background: white;
+            color: #667eea;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.3em;
+            border: none;
+            cursor: pointer;
+            margin: 20px 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        
+        .highlight {
+            background: rgba(255,255,255,0.3);
+            padding: 5px 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Slide 1: Title -->
+    <div class="slide">
+        <h1>🤖 Multi-Agent Playground</h1>
+        <p style="font-size: 2em;">One Chat, Three AI Experts!</p>
+        <p>Your personal AI team that picks the perfect expert for every question</p>
+    </div>
+
+    <!-- Slide 2: The Problem -->
+    <div class="slide">
+        <h2>😩 The Problem</h2>
+        <div class="example-box">
+            <p>❌ Switching between ChatGPT, Claude, and other AI tools</p>
+            <p>❌ Not sure which AI is best for your question</p>
+            <p>❌ Losing conversation context when switching</p>
+            <p>❌ Managing multiple tabs and accounts</p>
+        </div>
+        <p style="margin-top: 40px; font-size: 2em;">There has to be a better way! 💡</p>
+    </div>
+
+    <!-- Slide 3: The Solution -->
+    <div class="slide">
+        <h2>✨ The Solution</h2>
+        <p style="font-size: 2em; margin: 40px 0;">One smart system that knows ALL the AI experts!</p>
+        <p>Just ask your question → The system picks the best expert → You get the perfect answer</p>
+        <p style="margin-top: 40px; font-size: 1.8em;">Simple as that! 🎉</p>
+    </div>
+
+    <!-- Slide 4: Meet The Team -->
+    <div class="slide">
+        <h2>👥 Meet Your AI Team</h2>
+        <div class="agent-grid">
+            <div class="agent-card">
+                <div class="agent-icon">🎯</div>
+                <div class="agent-name">Switch Agent</div>
+                <div class="agent-desc">The smart receptionist who sends you to the right expert</div>
+            </div>
+            <div class="agent-card">
+                <div class="agent-icon">🔵</div>
+                <div class="agent-name">OpenAI Expert</div>
+                <div class="agent-desc">Searches files, checks the web, answers general questions</div>
+            </div>
+            <div class="agent-card">
+                <div class="agent-icon">🟣</div>
+                <div class="agent-name">Claude</div>
+                <div class="agent-desc">Your coding and creative writing genius</div>
+            </div>
+            <div class="agent-card">
+                <div class="agent-icon">🏠</div>
+                <div class="agent-name">Ollama</div>
+                <div class="agent-desc">Works offline on your computer</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 5: How It Works -->
+    <div class="slide">
+        <h2>🔄 How Does It Work?</h2>
+        <div class="flow-container">
+            <div class="flow-step">
+                <strong>STEP 1:</strong> You ask a question
+            </div>
+            <div class="arrow">⬇️</div>
+            <div class="flow-step">
+                <strong>STEP 2:</strong> Switch Agent analyzes your question
+            </div>
+            <div class="arrow">⬇️</div>
+            <div class="flow-step">
+                <strong>STEP 3:</strong> Routes to the perfect expert
+            </div>
+            <div class="arrow">⬇️</div>
+            <div class="flow-step">
+                <strong>STEP 4:</strong> You get an amazing answer!
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 6: Example 1 -->
+    <div class="slide">
+        <h2>📄 Use Case #1: Document Search</h2>
+        <div class="example-box">
+            <h3>You Ask:</h3>
+            <p>"What does my contract say about vacation days?"</p>
+        </div>
+        <div class="arrow">⬇️</div>
+        <div class="example-box">
+            <h3>What Happens:</h3>
+            <p>🎯 Switch Agent: "They need document search!"</p>
+            <p>🔵 Routes to OpenAI → File Search</p>
+            <p>📄 Searches your uploaded documents</p>
+            <p>✨ Returns: "You get 15 vacation days per year..."</p>
+        </div>
+    </div>
+
+    <!-- Slide 7: Example 2 -->
+    <div class="slide">
+        <h2>💻 Use Case #2: Coding Help</h2>
+        <div class="example-box">
+            <h3>You Ask:</h3>
+            <p>"Help me write a Python function to sort a list"</p>
+        </div>
+        <div class="arrow">⬇️</div>
+        <div class="example-box">
+            <h3>What Happens:</h3>
+            <p>🎯 Switch Agent: "This is a coding question!"</p>
+            <p>🟣 Routes to Claude</p>
+            <p>💻 Claude writes clean, explained code</p>
+            <p>✨ You get a perfect Python function!</p>
+        </div>
+    </div>
+
+    <!-- Slide 8: Example 3 -->
+    <div class="slide">
+        <h2>🌐 Use Case #3: Current News</h2>
+        <div class="example-box">
+            <h3>You Ask:</h3>
+            <p>"What's happening with AI this week?"</p>
+        </div>
+        <div class="arrow">⬇️</div>
+        <div class="example-box">
+            <h3>What Happens:</h3>
+            <p>🎯 Switch Agent: "They need current info!"</p>
+            <p>🔵 Routes to OpenAI → Web Search</p>
+            <p>🌐 Searches the latest news online</p>
+            <p>✨ Returns up-to-date AI news!</p>
+        </div>
+    </div>
+
+    <!-- Slide 9: Example 4 -->
+    <div class="slide">
+        <h2>✈️ Use Case #4: Offline Mode</h2>
+        <div class="example-box">
+            <h3>You Ask:</h3>
+            <p>"I'm on a plane with no wifi, help me debug this code"</p>
+        </div>
+        <div class="arrow">⬇️</div>
+        <div class="example-box">
+            <h3>What Happens:</h3>
+            <p>🎯 Switch Agent: "No internet? Use local AI!"</p>
+            <p>🏠 Routes to Ollama</p>
+            <p>💻 Runs on your computer, no internet needed</p>
+            <p>✨ Helps you debug offline!</p>
+        </div>
+    </div>
+
+    <!-- Slide 10: The Magic -->
+    <div class="slide">
+        <h2>✨ The Magic Happens Automatically</h2>
+        <div class="example-box">
+            <p><span class="highlight">You mention "Claude"</span> → Goes to Claude</p>
+        </div>
+        <div class="example-box">
+            <p><span class="highlight">You ask about files</span> → Searches documents</p>
+        </div>
+        <div class="example-box">
+            <p><span class="highlight">You need current info</span> → Searches web</p>
+        </div>
+        <div class="example-box">
+            <p><span class="highlight">You're offline</span> → Uses local AI</p>
+        </div>
+        <p style="margin-top: 40px; font-size: 1.8em;">No buttons to click! Just chat naturally! 💬</p>
+    </div>
+
+    <!-- Slide 11: Benefits -->
+    <div class="slide">
+        <h2>🎁 Why You'll Love It</h2>
+        <div class="agent-grid">
+            <div class="agent-card">
+                <div class="agent-icon">⚡</div>
+                <div class="agent-name">Super Fast</div>
+                <div class="agent-desc">No switching between apps</div>
+            </div>
+            <div class="agent-card">
+                <div class="agent-icon">🧠</div>
+                <div class="agent-name">Smart</div>
+                <div class="agent-desc">Always picks the right expert</div>
+            </div>
+            <div class="agent-card">
+                <div class="agent-icon">👁️</div>
+                <div class="agent-name">Transparent</div>
+                <div class="agent-desc">See which AI is helping you</div>
+            </div>
+            <div class="agent-card">
+                <div class="agent-icon">🔄</div>
+                <div class="agent-name">Seamless</div>
+                <div class="agent-desc">Keeps all your conversation history</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 12: Real World Scenarios -->
+    <div class="slide">
+        <h2>🌟 Real-World Scenarios</h2>
+        <div class="example-box">
+            <h3>📚 Student</h3>
+            <p>"Search my lecture notes" → File Search</p>
+            <p>"What's the latest on climate change?" → Web Search</p>
+            <p>"Help me write my essay with Claude" → Claude</p>
+        </div>
+        <div class="example-box">
+            <h3>💼 Developer</h3>
+            <p>"Search my code docs" → File Search</p>
+            <p>"What's new in Python 3.12?" → Web Search</p>
+            <p>"Debug this code with Claude" → Claude</p>
+        </div>
+        <div class="example-box">
+            <h3>✈️ Traveler</h3>
+            <p>"Help me offline" → Ollama</p>
+            <p>"Translate this phrase" → Ollama</p>
+        </div>
+    </div>
+
+    <!-- Slide 13: Behind the Scenes -->
+    <div class="slide">
+        <h2>🔍 Behind The Scenes</h2>
+        <p>You see: Simple chat interface</p>
+        <p style="font-size: 2em; margin: 30px 0;">⚙️</p>
+        <p>System does: Smart analysis → Intelligent routing → Perfect expert selection</p>
+        <p style="margin-top: 40px; font-size: 1.8em;">All in milliseconds! ⚡</p>
+    </div>
+
+    <!-- Slide 14: Summary -->
+    <div class="slide">
+        <h2>📝 Quick Summary</h2>
+        <div class="flow-container">
+            <p style="font-size: 1.5em; color: #333; margin: 20px 0;">
+                <strong>What:</strong> One chat interface for multiple AI experts
+            </p>
+            <p style="font-size: 1.5em; color: #333; margin: 20px 0;">
+                <strong>How:</strong> Smart routing system picks the best expert
+            </p>
+            <p style="font-size: 1.5em; color: #333; margin: 20px 0;">
+                <strong>Why:</strong> Save time, get better answers, stay in one place
+            </p>
+            <p style="font-size: 1.5em; color: #333; margin: 20px 0;">
+                <strong>Result:</strong> The perfect AI for every question! 🎯
+            </p>
+        </div>
+    </div>
+
+    <!-- Slide 15: Call to Action -->
+    <div class="slide">
+        <h1>🚀 Ready to Try?</h1>
+        <p style="font-size: 2em; margin: 40px 0;">Just start chatting!</p>
+        <p>The AI team handles everything else</p>
+        <button class="btn">Start Chatting →</button>
+        <p style="margin-top: 60px; font-size: 1.3em;">
+            Questions? Just ask! The right expert will answer! 😊
+        </p>
+    </div>
+
+    <script>
+        // Smooth scroll on click
+        document.querySelectorAll('.btn').forEach(button => {
+            button.addEventListener('click', () => {
+                alert('🎉 Open the app and start chatting! The AI team is ready to help!');
+            });
+        });
+
+        // Add fade-in animation on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                }
+            });
+        });
+
+        document.querySelectorAll('.agent-card, .flow-step').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
